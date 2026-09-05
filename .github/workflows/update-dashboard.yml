@@ -1,0 +1,42 @@
+name: Actualizar dashboard
+
+on:
+  schedule:
+    # Todos los días a las 09:00 UTC (≈ 05:00-06:00 en Paraguay, según horario de verano)
+    - cron: '0 9 * * *'
+  workflow_dispatch: {}   # permite ejecutarlo manualmente desde la pestaña "Actions"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: pip install pandas requests openpyxl
+
+      - name: Descargar y procesar datos de Google Drive
+        env:
+          SOURCE_CSV_URL: ${{ vars.SOURCE_CSV_URL }}
+        run: python scripts/update_dashboard.py
+
+      - name: Publicar cambios (si hay datos nuevos)
+        run: |
+          git config user.name "dashboard-bot"
+          git config user.email "actions@github.com"
+          git add data.json
+          if git diff --cached --quiet; then
+            echo "Sin cambios en data.json — no se publica nada nuevo."
+          else
+            git commit -m "Actualizar datos $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+          fi
