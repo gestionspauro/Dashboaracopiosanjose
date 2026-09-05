@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acopio San José — Dashboard en vivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg: #1c1912;
+    --panel: #262117;
+    --panel-2: #302a1d;
+    --line: #3d3627;
+    --gold: #e3b23c;
+    --gold-2: #c9902a;
+    --text: #f3efe6;
+    --text-muted: #a89a80;
+    --soja: #8a9a5b;
+    --maiz: #e3b23c;
+    --trigo: #c9a877;
+    --ok: #7c9a5e;
+    --alerta: #c0663f;
+    --steel: #453e30;
+    --steel-light: #5a4f3a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background: var(--bg);
+    background-image:
+      radial-gradient(1px 1px at 20px 30px, rgba(227,178,60,0.15) 1px, transparent 0),
+      radial-gradient(1px 1px at 60px 80px, rgba(227,178,60,0.1) 1px, transparent 0),
+      radial-gradient(1px 1px at 100px 40px, rgba(227,178,60,0.12) 1px, transparent 0);
+    background-size: 140px 140px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    padding: 28px 20px 60px;
+    min-height: 100vh;
+  }
+  .wrap{ max-width: 1100px; margin: 0 auto; }
+
+  header{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    flex-wrap: wrap; gap: 14px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 18px; margin-bottom: 22px;
+  }
+  .brand-eyebrow{
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--gold); font-weight: 600; margin-bottom: 6px;
+  }
+  h1{
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-weight: 800; font-size: 40px; letter-spacing: 0.01em;
+    text-transform: uppercase; line-height: 1;
+  }
+  .zafra{ text-align:right; }
+  .zafra .campaign{
+    font-family:'Big Shoulders Display', sans-serif; font-weight:700;
+    font-size: 22px; color: var(--gold);
+  }
+  .zafra .updated{ font-size: 12px; color: var(--text-muted); margin-top: 2px;}
+  .dot-live{ display:inline-block; width:6px; height:6px; border-radius:50%; background:#7c9a5e; margin-right:6px; box-shadow:0 0 0 3px rgba(124,154,94,0.2); }
+  .dot-live.stale{ background:#a89a80; box-shadow:0 0 0 3px rgba(168,154,128,0.2); }
+
+  .load-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom: 20px; }
+  .btn{
+    display:flex; align-items:center; gap:8px; cursor:pointer;
+    background: var(--panel); border:1px solid var(--line); border-radius: 8px;
+    padding: 11px 16px; font-size: 12.5px; font-weight:600; color: var(--text);
+    text-transform:uppercase; letter-spacing:0.03em;
+    font-family:inherit;
+  }
+  .btn:hover{ border-color: var(--gold); }
+  .btn.primary{ background: linear-gradient(180deg, var(--gold), var(--gold-2)); color:#241f14; border-color: var(--gold-2); }
+  .btn .ic{ width:16px; height:16px; flex-shrink:0; }
+  .btn .ic svg{ width:100%; height:100%; display:block; }
+  #fileInput{ display:none; }
+  .status-msg{ font-size:12px; color: var(--text-muted); }
+  .status-msg.err{ color: var(--alerta); font-weight:600; }
+  .status-msg.ok{ color: var(--ok); font-weight:600; }
+  .drop-hint{ font-size: 11px; color: var(--text-muted); margin-top: -8px; margin-bottom: 20px; }
+
+  .kpis{
+    display:grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+    margin-bottom: 34px;
+  }
+  .kpi{
+    background: linear-gradient(180deg, var(--panel), var(--panel-2));
+    border: 1px solid var(--line);
+    border-radius: 10px; padding: 18px 18px 16px;
+    position: relative; overflow:hidden;
+  }
+  .kpi::before{
+    content:''; position:absolute; top:0; left:0; width:3px; height:100%;
+    background: var(--gold);
+  }
+  .kpi-label{ font-size: 11px; text-transform:uppercase; letter-spacing:0.08em; color: var(--text-muted); font-weight:600; }
+  .kpi-value{
+    font-family:'Big Shoulders Display', sans-serif; font-weight:800;
+    font-size: 32px; color: var(--text); margin-top: 6px; line-height:1;
+  }
+  .kpi-value span{ font-size: 15px; color: var(--text-muted); font-family:'Inter'; font-weight:500; }
+  .kpi-sub{ font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+  .kpi-sub b{ color: var(--gold); font-weight:600; }
+  .kpi-bar{ height:5px; border-radius:3px; background: var(--line); margin-top:10px; overflow:hidden;}
+  .kpi-bar > div{ height:100%; background: linear-gradient(90deg, var(--gold-2), var(--gold)); border-radius:3px;}
+
+  .section-title{ display:flex; align-items:baseline; gap:10px; margin-bottom:16px; }
+  .section-title .num{ font-family:'Big Shoulders Display'; color: var(--gold); font-weight:700; font-size:14px;}
+  .section-title h2{ font-size: 13px; text-transform:uppercase; letter-spacing: 0.1em; font-weight:700; color: var(--text); }
+  .section-title .line{ flex:1; height:1px; background: var(--line); }
+  section{ margin-bottom: 38px; }
+
+  .silo-row{ display:flex; gap: 22px; overflow-x:auto; padding: 10px 4px 6px; }
+  .silo-card{ text-align:center; min-width: 100px; flex-shrink:0; }
+  .silo{
+    width: 78px; height: 150px; margin: 0 auto 10px;
+    background: var(--steel);
+    border: 1px solid var(--steel-light);
+    border-radius: 10px 10px 6px 6px;
+    position: relative; overflow:hidden;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);
+  }
+  .silo::before{
+    content:''; position:absolute; top:-11px; left:50%; transform: translateX(-50%);
+    width: 60px; height: 22px; background: var(--steel-light);
+    border-radius: 50% 50% 0 0;
+  }
+  .silo .fill{
+    position:absolute; bottom:0; left:0; width:100%;
+    background: linear-gradient(180deg, var(--gold), var(--gold-2));
+  }
+  .silo .fill::before{
+    content:''; position:absolute; top:0; left:0; width:100%; height:6px;
+    background: rgba(255,255,255,0.25);
+  }
+  .silo .pct{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:'Big Shoulders Display'; font-weight:800; font-size:20px; color: var(--text);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6); z-index:2;
+  }
+  .silo-name{ font-size:12px; font-weight:600; color: var(--text); }
+  .silo-crop{ font-size:11px; color: var(--text-muted); margin-top:1px;}
+  .silo-status{
+    display:inline-block; margin-top:6px; font-size:10px; font-weight:700;
+    text-transform:uppercase; letter-spacing:0.05em; padding:2px 8px; border-radius:20px;
+  }
+  .status-vigente{ background: rgba(124,154,94,0.18); color: var(--ok); }
+  .status-cumplido{ background: rgba(227,178,60,0.18); color: var(--gold); }
+  .status-alerta{ background: rgba(192,102,63,0.2); color: var(--alerta); }
+
+  .chart-panel{ background: var(--panel); border:1px solid var(--line); border-radius:10px; padding: 22px; }
+  .bars{ display:flex; align-items:flex-end; gap: 14px; height: 150px; padding-top: 10px; overflow-x:auto; }
+  .bar-col{ flex:1; min-width:44px; display:flex; flex-direction:column; align-items:center; height:100%; justify-content:flex-end; }
+  .bar-col .bar{ width: 60%; background: linear-gradient(180deg, var(--gold), var(--gold-2)); border-radius: 4px 4px 0 0; min-height:2px; }
+  .bar-col .bar-value{ font-size:11px; color: var(--text-muted); margin-bottom:4px; }
+  .bar-col .bar-label{ font-size:10.5px; color: var(--text-muted); margin-top:8px; text-transform:uppercase; text-align:center; white-space:nowrap; }
+
+  .crop-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+  .crop-card{ background: var(--panel); border:1px solid var(--line); border-radius:10px; padding: 18px 20px; }
+  .crop-head{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .crop-head .crop-dot{ width:10px; height:10px; }
+  .crop-head .crop-name{ font-family:'Big Shoulders Display'; font-weight:700; font-size:16px; letter-spacing:0.02em; }
+  .crop-stats{ display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; margin-top:6px; }
+  .crop-stats .stat-label{ font-size:10.5px; color: var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; }
+  .crop-stats .stat-value{ font-family:'Big Shoulders Display'; font-weight:700; font-size:18px; color:var(--text); }
+  .crop-bar{ height:5px; border-radius:3px; background: var(--line); margin-top:12px; overflow:hidden;}
+  .crop-bar > div{ height:100%; border-radius:3px; }
+
+  .table-panel{ background: var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .table-scroll{ max-height: 480px; overflow-y: auto; overflow-x:auto; }
+  table{ width:100%; border-collapse: collapse; font-size: 13px; }
+  thead th{
+    text-align:left; font-size: 10.5px; text-transform:uppercase; letter-spacing:0.06em;
+    color: var(--text-muted); font-weight:700; padding: 12px 16px; border-bottom: 1px solid var(--line);
+    background: var(--panel-2); position: sticky; top:0; z-index: 1;
+  }
+  tbody td{ padding: 11px 16px; border-bottom: 1px solid var(--line); color: var(--text); white-space:nowrap; }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover td{ background: rgba(227,178,60,0.05); }
+  .crop-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:7px; }
+  .cell-muted{ color: var(--text-muted); }
+  .pill{
+    font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;
+    padding: 3px 9px; border-radius: 20px; white-space:nowrap;
+  }
+
+  footer{ text-align:center; color: var(--text-muted); font-size:11px; margin-top: 40px; letter-spacing:0.04em;}
+
+  .price-panel{ background: var(--panel); border:1px solid var(--line); border-radius:10px; padding: 24px 22px 18px; }
+  .price-legend{ display:flex; gap:20px; margin-bottom:16px; flex-wrap:wrap; }
+  .price-legend .item{ display:flex; align-items:center; gap:7px; font-size:11.5px; color: var(--text-muted); }
+  .price-legend .swatch{ width:16px; height:2px; }
+  .price-caption{ font-size:11px; color: var(--text-muted); margin-top: 12px; line-height:1.5; }
+
+  .empty-note{ font-size:12px; color:var(--text-muted); padding:20px; text-align:center; }
+
+  @media (max-width: 720px){
+    .kpis{ grid-template-columns: repeat(2, 1fr); }
+    h1{ font-size: 30px; }
+    table{ font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="brand-eyebrow">Panel de acopiador</div>
+      <h1>Acopio San José</h1>
+    </div>
+    <div class="zafra">
+      <div class="campaign" id="contractCount">—</div>
+      <div class="updated"><span class="dot-live" id="liveDot"></span><span id="updatedText">Cargando…</span></div>
+    </div>
+  </header>
+
+  <div class="load-row">
+    <input type="file" id="fileInput" accept=".xlsx,.xls">
+    <button class="btn" id="loadBtn">
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg></span>
+      Probar un Excel local (vista previa)
+    </button>
+    <button class="btn" id="resetBtn">
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></span>
+      Ver datos publicados
+    </button>
+    <span class="status-msg" id="statusMsg"></span>
+  </div>
+  <div class="drop-hint">Este dashboard se actualiza automáticamente todos los días desde el Excel de Google Drive. El botón "Probar un Excel local" es solo una vista previa en tu navegador — no se publica ni queda guardada.</div>
+
+  <section class="kpis" id="kpisSection"></section>
+
+  <section>
+    <div class="section-title"><span class="num">01</span><h2>Cumplimiento de liquidación por productor</h2><div class="line"></div></div>
+    <div class="silo-row" id="siloRow"></div>
+  </section>
+
+  <section>
+    <div class="section-title"><span class="num">02</span><h2>Entregas semanales (toneladas recibidas)</h2><div class="line"></div></div>
+    <div class="chart-panel"><div class="bars" id="barsRow"></div></div>
+  </section>
+
+  <section>
+    <div class="section-title"><span class="num">03</span><h2>Resumen por cultivo</h2><div class="line"></div></div>
+    <div class="crop-grid" id="cropGrid"></div>
+  </section>
+
+  <section>
+    <div class="section-title"><span class="num">04</span><h2>Precio promedio de liquidación (US$/tn)</h2><div class="line"></div></div>
+    <div class="price-panel">
+      <div class="price-legend">
+        <div class="item"><span class="swatch" style="background:var(--gold-2)"></span>Precio promedio semanal liquidado — todos los cultivos</div>
+      </div>
+      <div id="priceChartWrap"></div>
+      <div class="price-caption" id="priceCaption"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title"><span class="num">05</span><h2>Detalle de contratos</h2><div class="line"></div></div>
+    <div class="table-panel">
+      <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Contrato</th><th>Fecha</th><th>Productor</th><th>Cultivo</th>
+            <th>Tn recib.</th><th>Tn liquid.</th><th>Tn factur.</th><th>Precio</th><th>Estado</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+      </div>
+    </div>
+  </section>
+
+  <footer>Datos sincronizados automáticamente desde Google Drive · Acopio San José</footer>
+</div>
+
+<script>
+const DEFAULT_DATA = [{"fecha": "2026-06-03", "productor": "Estancia Arandu", "cultivo": "Soja", "contrato": "C-1001", "recibida": 40.7, "liquidada": 26.7, "facturada": 19.5, "precio": 324.49, "monto": 8663.883, "estado": "Cerrado"}, {"fecha": "2026-06-05", "productor": "Estancia Arandu", "cultivo": "Trigo", "contrato": "C-1002", "recibida": 18.1, "liquidada": 12.4, "facturada": 10.6, "precio": 225.32, "monto": 2793.968, "estado": "Abierto"}, {"fecha": "2026-06-05", "productor": "Finca San Pedro", "cultivo": "Trigo", "contrato": "C-1003", "recibida": 59.0, "liquidada": 46.0, "facturada": 36.0, "precio": 242.08, "monto": 11135.68, "estado": "Cerrado"}, {"fecha": "2026-06-05", "productor": "Finca San Pedro", "cultivo": "Maiz", "contrato": "C-1004", "recibida": 31.3, "liquidada": 30.8, "facturada": 24.7, "precio": 187.01, "monto": 5759.908, "estado": "Abierto"}, {"fecha": "2026-06-05", "productor": "Finca Los Algarrobos", "cultivo": "Maiz", "contrato": "C-1005", "recibida": 99.7, "liquidada": 88.9, "facturada": 76.5, "precio": 200.19, "monto": 17796.891, "estado": "Cerrado"}, {"fecha": "2026-06-06", "productor": "Estancia Arandu", "cultivo": "Trigo", "contrato": "C-1006", "recibida": 81.0, "liquidada": 77.3, "facturada": 62.5, "precio": 217.59, "monto": 16819.707, "estado": "Abierto"}, {"fecha": "2026-06-06", "productor": "Estancia Arandu", "cultivo": "Trigo", "contrato": "C-1007", "recibida": 45.4, "liquidada": 28.7, "facturada": 22.1, "precio": 213.67, "monto": 6132.329, "estado": "Abierto"}, {"fecha": "2026-06-07", "productor": "Estancia La Esperanza", "cultivo": "Trigo", "contrato": "C-1008", "recibida": 32.1, "liquidada": 23.8, "facturada": 21.4, "precio": 250.05, "monto": 5951.19, "estado": "Cerrado"}, {"fecha": "2026-06-09", "productor": "Finca San Pedro", "cultivo": "Soja", "contrato": "C-1009", "recibida": 33.0, "liquidada": 29.4, "facturada": 22.0, "precio": 316.55, "monto": 9306.57, "estado": "Cerrado"}, {"fecha": "2026-06-11", "productor": "Finca San Pedro", "cultivo": "Trigo", "contrato": "C-1010", "recibida": 49.0, "liquidada": 44.5, "facturada": 31.9, "precio": 213.18, "monto": 9486.51, "estado": "Cerrado"}, {"fecha": "2026-06-12", "productor": "Estancia La Esperanza", "cultivo": "Maiz", "contrato": "C-1011", "recibida": 110.9, "liquidada": 91.7, "facturada": 83.9, "precio": 173.31, "monto": 15892.527, "estado": "Abierto"}, {"fecha": "2026-06-13", "productor": "Estancia La Esperanza", "cultivo": "Trigo", "contrato": "C-1012", "recibida": 42.8, "liquidada": 29.9, "facturada": 26.0, "precio": 227.53, "monto": 6803.147, "estado": "Abierto"}, {"fecha": "2026-06-15", "productor": "Estancia La Esperanza", "cultivo": "Trigo", "contrato": "C-1013", "recibida": 38.0, "liquidada": 38.0, "facturada": 32.4, "precio": 223.96, "monto": 8510.48, "estado": "Abierto"}, {"fecha": "2026-06-15", "productor": "Estancia Arandu", "cultivo": "Soja", "contrato": "C-1014", "recibida": 98.2, "liquidada": 75.5, "facturada": 54.3, "precio": 317.65, "monto": 23982.575, "estado": "Cerrado"}, {"fecha": "2026-06-16", "productor": "Agropecuaria Kue", "cultivo": "Maiz", "contrato": "C-1015", "recibida": 105.4, "liquidada": 63.7, "facturada": 58.4, "precio": 218.55, "monto": 13921.635, "estado": "Cerrado"}, {"fecha": "2026-06-18", "productor": "Finca Los Algarrobos", "cultivo": "Trigo", "contrato": "C-1016", "recibida": 45.8, "liquidada": 30.4, "facturada": 21.3, "precio": 220.41, "monto": 6700.464, "estado": "Cerrado"}, {"fecha": "2026-06-20", "productor": "Finca Los Algarrobos", "cultivo": "Trigo", "contrato": "C-1017", "recibida": 68.3, "liquidada": 43.9, "facturada": 39.0, "precio": 245.72, "monto": 10787.108, "estado": "Cerrado"}, {"fecha": "2026-06-22", "productor": "Agropecuaria Kue", "cultivo": "Soja", "contrato": "C-1018", "recibida": 95.1, "liquidada": 77.6, "facturada": 72.4, "precio": 289.17, "monto": 22439.592, "estado": "Cerrado"}, {"fecha": "2026-06-22", "productor": "Agropecuaria Kue", "cultivo": "Maiz", "contrato": "C-1019", "recibida": 26.7, "liquidada": 19.9, "facturada": 19.8, "precio": 194.43, "monto": 3869.157, "estado": "Cerrado"}, {"fecha": "2026-06-22", "productor": "Estancia Arandu", "cultivo": "Soja", "contrato": "C-1020", "recibida": 114.4, "liquidada": 72.6, "facturada": 61.4, "precio": 332.68, "monto": 24152.568, "estado": "Abierto"}, {"fecha": "2026-06-24", "productor": "Coop. Chaco Norte", "cultivo": "Soja", "contrato": "C-1021", "recibida": 114.4, "liquidada": 76.2, "facturada": 65.4, "precio": 319.59, "monto": 24352.758, "estado": "Cerrado"}, {"fecha": "2026-06-24", "productor": "Agropecuaria Kue", "cultivo": "Trigo", "contrato": "C-1022", "recibida": 89.9, "liquidada": 68.3, "facturada": 61.6, "precio": 241.39, "monto": 16486.937, "estado": "Cerrado"}, {"fecha": "2026-06-26", "productor": "Estancia La Esperanza", "cultivo": "Soja", "contrato": "C-1023", "recibida": 21.7, "liquidada": 13.2, "facturada": 11.4, "precio": 294.87, "monto": 3892.284, "estado": "Cerrado"}, {"fecha": "2026-06-26", "productor": "Estancia Arandu", "cultivo": "Trigo", "contrato": "C-1024", "recibida": 39.0, "liquidada": 37.5, "facturada": 35.9, "precio": 237.87, "monto": 8920.125, "estado": "Abierto"}, {"fecha": "2026-06-26", "productor": "Finca Los Algarrobos", "cultivo": "Trigo", "contrato": "C-1025", "recibida": 71.6, "liquidada": 63.7, "facturada": 61.5, "precio": 229.12, "monto": 14594.944, "estado": "Cerrado"}, {"fecha": "2026-06-26", "productor": "Estancia La Esperanza", "cultivo": "Maiz", "contrato": "C-1026", "recibida": 25.2, "liquidada": 19.5, "facturada": 16.1, "precio": 179.52, "monto": 3500.64, "estado": "Cerrado"}, {"fecha": "2026-06-28", "productor": "Estancia Arandu", "cultivo": "Trigo", "contrato": "C-1027", "recibida": 82.8, "liquidada": 51.7, "facturada": 47.5, "precio": 239.21, "monto": 12367.157, "estado": "Cerrado"}, {"fecha": "2026-06-28", "productor": "Coop. Chaco Norte", "cultivo": "Soja", "contrato": "C-1028", "recibida": 62.1, "liquidada": 47.7, "facturada": 37.4, "precio": 291.41, "monto": 13900.257, "estado": "Abierto"}, {"fecha": "2026-06-28", "productor": "Estancia La Esperanza", "cultivo": "Trigo", "contrato": "C-1029", "recibida": 83.5, "liquidada": 68.2, "facturada": 48.0, "precio": 205.87, "monto": 14040.334, "estado": "Abierto"}, {"fecha": "2026-06-28", "productor": "Coop. Chaco Norte", "cultivo": "Maiz", "contrato": "C-1030", "recibida": 37.4, "liquidada": 28.4, "facturada": 20.4, "precio": 194.28, "monto": 5517.552, "estado": "Cerrado"}, {"fecha": "2026-06-29", "productor": "Finca Los Algarrobos", "cultivo": "Maiz", "contrato": "C-1031", "recibida": 88.1, "liquidada": 78.6, "facturada": 73.5, "precio": 184.26, "monto": 14482.836, "estado": "Cerrado"}, {"fecha": "2026-06-30", "productor": "Coop. Chaco Norte", "cultivo": "Soja", "contrato": "C-1032", "recibida": 116.7, "liquidada": 97.1, "facturada": 83.8, "precio": 297.8, "monto": 28916.38, "estado": "Cerrado"}, {"fecha": "2026-06-30", "productor": "Estancia Arandu", "cultivo": "Trigo", "contrato": "C-1033", "recibida": 111.5, "liquidada": 90.6, "facturada": 65.0, "precio": 228.61, "monto": 20712.066, "estado": "Cerrado"}, {"fecha": "2026-06-30", "productor": "Estancia Arandu", "cultivo": "Trigo", "contrato": "C-1034", "recibida": 105.5, "liquidada": 80.3, "facturada": 78.9, "precio": 204.08, "monto": 16387.624, "estado": "Cerrado"}, {"fecha": "2026-07-02", "productor": "Agropecuaria Kue", "cultivo": "Soja", "contrato": "C-1035", "recibida": 59.0, "liquidada": 49.2, "facturada": 42.2, "precio": 317.16, "monto": 15604.272, "estado": "Cerrado"}, {"fecha": "2026-07-02", "productor": "Finca San Pedro", "cultivo": "Trigo", "contrato": "C-1036", "recibida": 42.9, "liquidada": 28.0, "facturada": 25.0, "precio": 218.85, "monto": 6127.8, "estado": "Cerrado"}, {"fecha": "2026-07-02", "productor": "Estancia Arandu", "cultivo": "Maiz", "contrato": "C-1037", "recibida": 74.1, "liquidada": 47.4, "facturada": 40.8, "precio": 201.06, "monto": 9530.244, "estado": "Cerrado"}, {"fecha": "2026-07-02", "productor": "Finca Los Algarrobos", "cultivo": "Soja", "contrato": "C-1038", "recibida": 53.8, "liquidada": 35.7, "facturada": 33.9, "precio": 332.76, "monto": 11879.532, "estado": "Cerrado"}, {"fecha": "2026-07-04", "productor": "Finca San Pedro", "cultivo": "Trigo", "contrato": "C-1039", "recibida": 100.8, "liquidada": 72.6, "facturada": 65.3, "precio": 200.47, "monto": 14554.122, "estado": "Cerrado"}, {"fecha": "2026-07-04", "productor": "Finca Los Algarrobos", "cultivo": "Soja", "contrato": "C-1040", "recibida": 93.0, "liquidada": 61.6, "facturada": 48.3, "precio": 333.38, "monto": 20536.208, "estado": "Abierto"}, {"fecha": "2026-07-05", "productor": "Coop. Chaco Norte", "cultivo": "Trigo", "contrato": "C-1041", "recibida": 42.7, "liquidada": 34.0, "facturada": 33.0, "precio": 238.05, "monto": 8093.7, "estado": "Cerrado"}, {"fecha": "2026-07-05", "productor": "Finca San Pedro", "cultivo": "Maiz", "contrato": "C-1042", "recibida": 19.6, "liquidada": 14.4, "facturada": 10.6, "precio": 211.47, "monto": 3045.168, "estado": "Cerrado"}, {"fecha": "2026-07-05", "productor": "Finca San Pedro", "cultivo": "Maiz", "contrato": "C-1043", "recibida": 59.9, "liquidada": 36.2, "facturada": 26.2, "precio": 197.58, "monto": 7152.396, "estado": "Cerrado"}, {"fecha": "2026-07-05", "productor": "Agropecuaria Kue", "cultivo": "Soja", "contrato": "C-1044", "recibida": 76.2, "liquidada": 50.2, "facturada": 37.1, "precio": 330.08, "monto": 16570.016, "estado": "Abierto"}, {"fecha": "2026-07-05", "productor": "Finca Los Algarrobos", "cultivo": "Soja", "contrato": "C-1045", "recibida": 85.0, "liquidada": 63.0, "facturada": 54.7, "precio": 320.92, "monto": 20217.96, "estado": "Cerrado"}, {"fecha": "2026-07-07", "productor": "Finca San Pedro", "cultivo": "Soja", "contrato": "C-1046", "recibida": 39.9, "liquidada": 26.5, "facturada": 24.9, "precio": 335.55, "monto": 8892.075, "estado": "Abierto"}, {"fecha": "2026-07-08", "productor": "Estancia Arandu", "cultivo": "Soja", "contrato": "C-1047", "recibida": 49.9, "liquidada": 48.5, "facturada": 45.6, "precio": 324.19, "monto": 15723.215, "estado": "Cerrado"}, {"fecha": "2026-07-08", "productor": "Finca Los Algarrobos", "cultivo": "Soja", "contrato": "C-1048", "recibida": 26.4, "liquidada": 25.1, "facturada": 24.0, "precio": 327.24, "monto": 8213.724, "estado": "Abierto"}, {"fecha": "2026-07-09", "productor": "Finca Los Algarrobos", "cultivo": "Maiz", "contrato": "C-1049", "recibida": 106.5, "liquidada": 73.4, "facturada": 65.9, "precio": 211.03, "monto": 15489.602, "estado": "Cerrado"}, {"fecha": "2026-07-10", "productor": "Estancia Arandu", "cultivo": "Maiz", "contrato": "C-1050", "recibida": 68.5, "liquidada": 59.7, "facturada": 56.9, "precio": 187.56, "monto": 11197.332, "estado": "Abierto"}, {"fecha": "2026-07-10", "productor": "Estancia Arandu", "cultivo": "Maiz", "contrato": "C-1051", "recibida": 116.1, "liquidada": 82.0, "facturada": 60.1, "precio": 178.93, "monto": 14672.26, "estado": "Cerrado"}, {"fecha": "2026-07-12", "productor": "Finca Los Algarrobos", "cultivo": "Maiz", "contrato": "C-1052", "recibida": 68.7, "liquidada": 51.8, "facturada": 45.2, "precio": 200.31, "monto": 10376.058, "estado": "Abierto"}, {"fecha": "2026-07-14", "productor": "Estancia La Esperanza", "cultivo": "Soja", "contrato": "C-1053", "recibida": 99.7, "liquidada": 87.2, "facturada": 85.6, "precio": 311.2, "monto": 27136.64, "estado": "Cerrado"}, {"fecha": "2026-07-14", "productor": "Finca Los Algarrobos", "cultivo": "Maiz", "contrato": "C-1054", "recibida": 84.7, "liquidada": 62.0, "facturada": 49.2, "precio": 173.5, "monto": 10757.0, "estado": "Cerrado"}, {"fecha": "2026-07-16", "productor": "Finca Los Algarrobos", "cultivo": "Trigo", "contrato": "C-1055", "recibida": 57.9, "liquidada": 44.1, "facturada": 34.8, "precio": 218.56, "monto": 9638.496, "estado": "Abierto"}, {"fecha": "2026-07-17", "productor": "Finca San Pedro", "cultivo": "Maiz", "contrato": "C-1056", "recibida": 109.8, "liquidada": 92.9, "facturada": 73.4, "precio": 203.87, "monto": 18939.523, "estado": "Cerrado"}, {"fecha": "2026-07-17", "productor": "Finca Los Algarrobos", "cultivo": "Maiz", "contrato": "C-1057", "recibida": 97.5, "liquidada": 82.2, "facturada": 65.5, "precio": 180.51, "monto": 14837.922, "estado": "Cerrado"}, {"fecha": "2026-07-19", "productor": "Coop. Chaco Norte", "cultivo": "Trigo", "contrato": "C-1058", "recibida": 109.6, "liquidada": 100.7, "facturada": 75.6, "precio": 228.39, "monto": 22998.873, "estado": "Abierto"}, {"fecha": "2026-07-21", "productor": "Finca San Pedro", "cultivo": "Trigo", "contrato": "C-1059", "recibida": 24.8, "liquidada": 24.3, "facturada": 18.7, "precio": 237.16, "monto": 5762.988, "estado": "Abierto"}, {"fecha": "2026-07-21", "productor": "Coop. Chaco Norte", "cultivo": "Soja", "contrato": "C-1060", "recibida": 118.3, "liquidada": 99.9, "facturada": 93.0, "precio": 282.77, "monto": 28248.723, "estado": "Cerrado"}];
+</script>
+<script src="script.js"></script>
+</body>
+</html>
